@@ -1,0 +1,21 @@
+{
+    "name": "jeffery_huntley/bunny-storage",
+    "description": "refactory bunny storage and support conccurent upload and download",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "JefferyHuntley\\BunnyStorage\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Jeffery Huntley",
+            "email": "jh@jeffery-huntley.xyz"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=8.0"
+    }
+}
