@@ -3,7 +3,7 @@
 use JefferyHuntley\BunnyStorage\BunnyStorage;
 
 include_once dirname(dirname(__FILE__)) . "/vendor/autoload.php";
-$storage_key = ''; // here is your app_key, you can find it on the zone dashboard
+$storage_key = ""; // here is your app_key, you can find it on the zone dashboard
 $zone_name = ""; // there is your zone name
 $local_folder = dirname(__FILE__) . DIRECTORY_SEPARATOR . "files";
 $storage_path = "test/kk/";
@@ -12,6 +12,16 @@ $download_folder = $local_folder . DIRECTORY_SEPARATOR . "download";
 
 // new BunnyStorage Object
 $bunny_storage = new BunnyStorage($zone_name, $storage_key, BunnyStorage::ENDPOINT_LOS_ANGELES);
+$rtns = $bunny_storage->PutObjects([
+    'test/kaka/1.jpg' => $local_folder . DIRECTORY_SEPARATOR . "1.jpg",
+    'test/kaka/2.jpg' => $local_folder . DIRECTORY_SEPARATOR . "2.jpg",
+    'test/kaka/3.jpg' => $local_folder . DIRECTORY_SEPARATOR . "3.jpg",
+    'test/kaka/4.jpg' => $local_folder . DIRECTORY_SEPARATOR . "4.jpg",
+]);
+echo json_encode($rtns) . "\n";
+$rtn_de = $bunny_storage->DeleteObjects(["test/kaka/1.jpg", "test/kaka/2.jpg"]);
+echo json_encode($rtn_de) . "\n";
+//die;
 // Test Put an Object
 $rtn = $bunny_storage->PutObject($temp_file_path, $stored_file_path = $storage_path . basename($temp_file_path));
 echo json_encode($rtn) . "\n";

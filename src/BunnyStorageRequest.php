@@ -7,8 +7,6 @@ class BunnyStorageRequest
 {
     public string $path = '';
 
-    public $success_handler = null;
-
     public string $method = "GET";
 
     public mixed $upload_file_handler = null;
@@ -22,10 +20,9 @@ class BunnyStorageRequest
     public string $download_file_path = '';
 
     public bool $is_folder_operation = false;
-    public function __construct(string $path, callable $success_handler, string $method = 'GET')
+    public function __construct(string $path, string $method = 'GET')
     {
         $this->path = $path;
-        $this->success_handler = $success_handler;
         $this->method = $method;
     }
 

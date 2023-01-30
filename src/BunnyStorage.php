@@ -8,6 +8,7 @@ use JefferyHuntley\BunnyStorage\Exceptions\BunnyCDNStorageFileNotFoundException;
 use JefferyHuntley\BunnyStorage\Exceptions\BunnyCDNStorageNoSuchRegionException;
 use JefferyHuntley\BunnyStorage\Exceptions\BunnyCDNStorageParamsException;
 use CurlHandle;
+use RuntimeException;
 
 class BunnyStorage
 {
@@ -166,13 +167,13 @@ class BunnyStorage
                 continue;
             }
             $requests[] = (new BunnyStorageRequest(
-                trim($storage_folder, "/") . "/" . basename($file_path), $handler = function(string|null $content, CurlHandle $handler)use(&$rtn){
-                $rtn[] = curl_getinfo($handler,  CURLINFO_EFFECTIVE_URL);
-            }))->SetMethod("PUT")->SetUploadFile($file_path);
+                trim($storage_folder, "/") . "/" . basename($file_path)))->SetMethod("PUT")->SetUploadFile($file_path);
 
         }
 
-        $this->MultiHttpRequest($requests);
+        $this->MultiHttpRequest($requests, function(string|null $content, CurlHandle $handler)use(&$rtn){
+            $rtn[] = curl_getinfo($handler,  CURLINFO_EFFECTIVE_URL);
+        });
         return $rtn;
     }
 
@@ -189,12 +190,16 @@ class BunnyStorage
     {
         $rtn = null;
         $bunny_request = (new BunnyStorageRequest(
-            $storage_folder, $handler = function(string|null $content, CurlHandle $handler)use(&$rtn){
-            $rtn = $content;
-        }))->SetIsFolderOperation(true)->SetMethod("DELETE");
-        $this->MultiHttpRequest([$bunny_request]);
+            $storage_folder))->SetIsFolderOperation(true)->SetMethod("DELETE");
+        $this->MultiHttpRequest([$bunny_request], function(string|null $content, CurlHandle $handler)use(&$rtn){
+            $rtn = json_decode($content, true);
+        });
 
-        return json_decode($rtn,true);
+        return $rtn;
+    }
+
+    public function DeleteFiles(array $files) {
+
     }
 
     /**
@@ -216,11 +221,11 @@ class BunnyStorage
                 $requests = [];
             }
             $requests[] = (new BunnyStorageRequest(
-                $storage_path, $handler = function (string|null $content, CurlHandle $handler) use (&$rtn) {
-                $rtn[] = curl_getinfo($handler, CURLINFO_EFFECTIVE_URL);
-            }))->SetDownloadFile($local_path);
+                $storage_path))->SetDownloadFile($local_path);
         }
-        $this->MultiHttpRequest($requests);
+        $this->MultiHttpRequest($requests, function (string|null $content, CurlHandle $handler) use (&$rtn) {
+            $rtn[] = curl_getinfo($handler, CURLINFO_EFFECTIVE_URL);
+        });
         return $rtn;
     }
 
@@ -237,11 +242,11 @@ class BunnyStorage
     {
         $rtn = null;
         $bunny_request = (new BunnyStorageRequest(
-            $path, $handler = function(string|null $content, CurlHandle $handler)use(&$rtn){
-            $rtn = $content;
-        }))->SetIsFolderOperation(true);
-        $this->MultiHttpRequest([$bunny_request]);
-        return json_decode($rtn,true);
+            $path))->SetIsFolderOperation(true);
+        $this->MultiHttpRequest([$bunny_request], function(string|null $content, CurlHandle $handler)use(&$rtn){
+            $rtn = json_decode($content, true);
+        });
+        return $rtn;
     }
 
     /**
@@ -257,11 +262,36 @@ class BunnyStorage
     public function PutObject(string $file_path, string $storage_path): mixed
     {
         $bunny_request = (new BunnyStorageRequest(
-            $storage_path, $handler = function(string|null $content, CurlHandle $handler)use(&$rtn){
-            $rtn = $content;
-        }))->SetMethod("PUT")->SetUploadFile($file_path);
-        $this->MultiHttpRequest([$bunny_request]);
-        return json_decode($rtn,true);
+            $storage_path))->SetMethod("PUT")->SetUploadFile($file_path);
+        $this->MultiHttpRequest([$bunny_request], function(string|null $content, CurlHandle $handler)use(&$rtn){
+            $rtn = json_decode($content, true);
+        });
+        return $rtn;
+    }
+
+    /**
+     * @param array $files_and_its_path
+     * @return mixed
+     * @throws BunnyCDNStorageAuthenticationException
+     * @throws BunnyCDNStorageException
+     * @throws BunnyCDNStorageFileNotFoundException
+     * @throws BunnyCDNStorageParamsException
+     */
+    public function PutObjects(array $files_and_its_path): mixed
+    {
+        $bunny_requests = [];
+        $rtn = [];
+        foreach ($files_and_its_path as $file_storage_path => $file_local_path) {
+            if (!file_exists($file_local_path)) {
+                throw new BunnyCDNStorageFileNotFoundException("the File '{$file_local_path}' dose not Exist");
+            }
+            $bunny_requests[] = (new BunnyStorageRequest(
+                $file_storage_path))->SetMethod("PUT")->SetUploadFile($file_local_path);
+        }
+        $this->MultiHttpRequest($bunny_requests, function(string|null $content, CurlHandle $handler)use(&$rtn){
+            $rtn[curl_getinfo($handler, CURLINFO_EFFECTIVE_URL)] = json_decode($content, true);
+        });
+        return $rtn;
     }
 
     /**
@@ -276,11 +306,23 @@ class BunnyStorage
     public function DeleteObject(string $storage_path): mixed
     {
         $bunny_request = (new BunnyStorageRequest(
-            $storage_path, $handler = function(string|null $content, CurlHandle $handler)use(&$rtn){
-            $rtn = $content;
-        }))->SetMethod("DELETE");
-        $this->MultiHttpRequest([$bunny_request]);
-        return json_decode($rtn,true);
+            $storage_path))->SetMethod("DELETE");
+        $this->MultiHttpRequest([$bunny_request], function(string|null $content, CurlHandle $handler)use(&$rtn){
+            $rtn = json_decode($content,true);
+        });
+        return $rtn;
+    }
+
+    public function DeleteObjects(array $object_keys) {
+        $bunny_requests = [];
+        foreach ($object_keys as $object_key) {
+            $bunny_requests[] = (new BunnyStorageRequest(
+                $object_key))->SetMethod("DELETE");
+        }
+        $this->MultiHttpRequest($bunny_requests, function(string|null $content, CurlHandle $handler)use(&$rtn){
+            $rtn[curl_getinfo($handler, CURLINFO_EFFECTIVE_URL)] = json_decode($content,true);
+        });
+        return $rtn;
     }
 
     /**
@@ -296,37 +338,40 @@ class BunnyStorage
     public function DownloadObject(string $storage_path, string $download_path): mixed
     {
         $bunny_request = (new BunnyStorageRequest(
-            $storage_path, $handler = function(string|null $content, CurlHandle $handler)use(&$rtn){
-            $rtn = $content;
-        }))->SetDownloadFile($download_path);
-        $this->MultiHttpRequest([$bunny_request]);
-        return json_decode($rtn,true);
+            $storage_path))->SetDownloadFile($download_path);
+        $this->MultiHttpRequest([$bunny_request], function(string|null $content, CurlHandle $handler)use(&$rtn){
+            $rtn = json_decode($content?:"", true);
+        });
+        return $rtn;
     }
 
     /**
      * @param array $requests
+     * @param callable|null $on_success
+     * @param callable|null $on_failed
      * @return void
-     * @throws BunnyCDNStorageAuthenticationException
      * @throws BunnyCDNStorageException
-     * @throws BunnyCDNStorageFileNotFoundException
      * @throws BunnyCDNStorageParamsException
      */
-    protected function MultiHttpRequest(array $requests): void
+    protected function MultiHttpRequest(array $requests, ?callable $on_success = null, ?callable $on_failed = null): void
     {
         $curl_multiple_wraper = new CurlMultipleWraper();
+
+        $rtn_collect = [];
         /**
          * @var BunnyStorageRequest $request
          */
         foreach ($requests as $request) {
-            $curl_multiple_wraper->CurlSetting(function(CurlHandle $handle)use($request){
+            $curl_multiple_wraper->CurlSetting(function(CurlHandle $handle)use($request, &$rtn_collect){
+                $rtn_collect[] = $request;
                 return $this->CurlOptSetter($handle, $request);
             });
         }
-        $curl_multiple_wraper->Await(function(string|null $content, CurlHandle $handler)use($request){
-            $success_handler = $request->success_handler;
-            (!$success_handler) ?: $success_handler($content, $handler);
-        }, function(CurlHandle $handle){
-            $this->Failed($handle, function(CurlHandle $handle){
+
+        $curl_multiple_wraper->Await(function(string|null $content, CurlHandle $handler)use($on_success){
+            (!$on_success) ?: $on_success($content, $handler);
+        }, function(CurlHandle $handle)use($on_failed){
+            $this->Failed($handle, $on_failed ?: function(CurlHandle $handle){
                 throw match ($code = curl_getinfo($handle, CURLINFO_HTTP_CODE)){
                     404 => new BunnyCDNStorageFileNotFoundException(curl_getinfo($handle,  CURLINFO_EFFECTIVE_URL)),
                     401 => new BunnyCDNStorageAuthenticationException($this->storageZoneName, $this->apiAccessKey),
